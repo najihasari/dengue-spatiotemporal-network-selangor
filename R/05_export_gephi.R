@@ -332,11 +332,6 @@ cat(
 # Coordinates:
 # Longitude and Latitude are included for geographic or
 # spatially informed visualisation.
-#
-# IMPORTANT:
-# Exact confidential patient-level coordinates should not be
-# uploaded to a public GitHub repository.
-# Public examples should use synthetic or masked coordinates.
 # ==========================================================
 
 
