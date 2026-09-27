@@ -1,28 +1,57 @@
-# dengue-spatiotemporal-network-selangor
-R workflow for spatiotemporal dengue network construction, social network analysis, ERGM modelling and GIS/Gephi visualisation in Selangor, Malaysia.
-# Spatiotemporal Dengue Network Analysis in Selangor
+  # Spatiotemporal Dengue Network Analysis in Selangor, Malaysia
 
-This repository contains the analytical workflow used to construct and analyse
-spatiotemporal dengue linkage networks in Selangor, Malaysia.
+R workflow for spatiotemporal dengue network construction, social network analysis, ERGM modelling, and Gephi visualisation in Selangor, Malaysia.
 
-## Study overview
+This repository contains a curated and reproducible R workflow for constructing and analysing spatiotemporal dengue linkage networks.
 
-Laboratory-confirmed dengue cases were represented as nodes.
+The workflow is based on a 2023 dengue surveillance study in Selangor, Malaysia, and is intended for:
 
-An undirected edge was created between two cases when:
+- research reproducibility;
+- teaching and training;
+- public-health network analysis;
+- adaptation to other infectious-disease datasets.
 
-- residential distance was ≤ 200 metres; and
-- difference in illness onset was ≤ 14 days.
+The original confidential surveillance dataset is **not included** in this repository.
 
-The analytical workflow includes:
+---
 
-- data preprocessing
-- construction of spatiotemporal linkages
-- social network analysis
-- ERGM modelling
-- model diagnostics and goodness-of-fit assessment
-- sensitivity analysis
-- export for Gephi and QGIS visualisation
+## Study Concept
+
+Each laboratory-confirmed dengue case is represented as a **node**.
+
+An **undirected edge** is created between two cases when both conditions are met:
+
+- residential distance ≤ 200 metres;
+- difference in illness-onset date ≤ 14 days.
+
+This linkage represents **spatiotemporal epidemiological proximity** and should not be interpreted as confirmed person-to-person transmission.
+
+---
+
+## Analytical Workflow
+
+The repository follows this sequence:
+
+```text
+Data cleaning
+      ↓
+Spatiotemporal linkage construction
+      ↓
+Social Network Analysis
+      ↓
+Centrality analysis
+      ↓
+Gephi export
+      ↓
+Statnet network preparation
+      ↓
+ERGM analysis
+      ↓
+MCMC diagnostics
+      ↓
+Goodness-of-fit assessment
+      ↓
+Sensitivity analysis
 
 ## Software
 
