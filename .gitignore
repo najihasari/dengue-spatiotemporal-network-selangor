@@ -48,5 +48,9 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 
-output/gephi/*.csv
+# Confidential research data
+data/raw/*
 data/processed/*.csv
+
+# Gephi case-level exports
+output/gephi/*.csv
