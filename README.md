@@ -42,3 +42,21 @@ because it contains confidential individual-level health and residential
 geolocation information.
 
 Synthetic data will be provided for demonstration of the analytical workflow.
+
+## Citation
+
+If you use or adapt code from this repository for research, teaching,
+or publication, please cite this repository using the citation
+information provided in `CITATION.cff`.
+
+## License
+
+This project is licensed under the GNU General Public License v3.0
+(GPL-3.0). See the `LICENSE` file for details.
+
+## Disclaimer
+
+The code in this repository is provided for research and educational
+purposes. The original individual-level dengue surveillance data are
+not publicly distributed due to confidentiality and data-governance
+requirements.
