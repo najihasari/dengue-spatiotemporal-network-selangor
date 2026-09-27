@@ -1,0 +1,385 @@
+# ==========================================================
+# 02_construct_spatiotemporal_links.R
+# Spatiotemporal Dengue Network Analysis - Selangor, 2023
+# ==========================================================
+#
+# Purpose:
+# Construct pairwise spatiotemporal linkages between dengue
+# cases based on residential distance and illness-onset time.
+#
+# Primary linkage definition:
+# - Distance <= 200 metres
+# - Onset difference <= 14 days
+#
+# Network type:
+# - Undirected
+#
+# IMPORTANT:
+# A linkage represents spatial-temporal epidemiological
+# proximity. It does NOT represent confirmed person-to-person
+# dengue transmission.
+# ==========================================================
+
+
+# ---------------------------
+# 1. Load setup
+# ---------------------------
+
+source("R/00_setup.R")
+
+
+# ---------------------------
+# 2. Load cleaned data
+# ---------------------------
+
+data_clean <- read_csv(
+  "data/processed/dengue_selangor_2023_clean.csv",
+  show_col_types = FALSE
+)
+
+glimpse(data_clean)
+
+
+# ---------------------------
+# 3. Prepare case pairs
+# ---------------------------
+
+# The linkage process compares possible pairs of cases.
+#
+# To avoid duplicate undirected edges:
+#
+# A-B is retained
+# B-A is not repeated
+#
+# Self-links such as A-A are excluded.
+
+case_pairs <- tidyr::crossing(
+  source_index = seq_len(nrow(data_clean)),
+  target_index = seq_len(nrow(data_clean))
+) %>%
+  filter(source_index < target_index)
+
+
+# ---------------------------
+# 4. Attach source-case information
+# ---------------------------
+
+source_data <- data_clean %>%
+  mutate(source_index = row_number()) %>%
+  transmute(
+    source_index,
+    source = case_id,
+    source_onset = onset_date,
+    source_lat = latitude,
+    source_lon = longitude,
+    source_district = district
+  )
+
+
+# ---------------------------
+# 5. Attach target-case information
+# ---------------------------
+
+target_data <- data_clean %>%
+  mutate(target_index = row_number()) %>%
+  transmute(
+    target_index,
+    target = case_id,
+    target_onset = onset_date,
+    target_lat = latitude,
+    target_lon = longitude,
+    target_district = district
+  )
+
+
+# ---------------------------
+# 6. Combine pair information
+# ---------------------------
+
+case_pairs <- case_pairs %>%
+  left_join(
+    source_data,
+    by = "source_index"
+  ) %>%
+  left_join(
+    target_data,
+    by = "target_index"
+  )
+
+
+# ---------------------------
+# 7. Calculate onset-date difference
+# ---------------------------
+
+case_pairs <- case_pairs %>%
+  mutate(
+    onset_gap_days = abs(
+      as.numeric(
+        as.Date(source_onset) -
+        as.Date(target_onset)
+      )
+    )
+  )
+
+
+# ---------------------------
+# 8. Calculate residential distance
+# ---------------------------
+
+# Haversine distance is used to calculate the straight-line
+# distance between two geographic coordinates.
+#
+# geosphere::distHaversine returns distance in metres.
+
+case_pairs <- case_pairs %>%
+  rowwise() %>%
+  mutate(
+    distance_m = geosphere::distHaversine(
+      c(source_lon, source_lat),
+      c(target_lon, target_lat)
+    )
+  ) %>%
+  ungroup()
+
+
+# ---------------------------
+# 9. Apply primary linkage definition
+# ---------------------------
+
+edges <- case_pairs %>%
+  filter(
+    distance_m <= SPATIAL_THRESHOLD_M,
+    onset_gap_days <= TEMPORAL_THRESHOLD_DAYS
+  )
+
+
+# ---------------------------
+# 10. Retain analytical edge variables
+# ---------------------------
+
+edges <- edges %>%
+  transmute(
+    source,
+    target,
+    distance_m,
+    onset_gap_days,
+    source_district,
+    target_district
+  )
+
+
+# ---------------------------
+# 11. Inspect number of edges
+# ---------------------------
+
+cat(
+  "\nNumber of spatiotemporal edges:",
+  nrow(edges),
+  "\n"
+)
+
+
+# ---------------------------
+# 12. Check duplicate edges
+# ---------------------------
+
+duplicate_edges <- edges %>%
+  count(
+    source,
+    target,
+    name = "n"
+  ) %>%
+  filter(n > 1)
+
+if (nrow(duplicate_edges) > 0) {
+
+  message("Warning: duplicate edges detected.")
+
+  print(duplicate_edges)
+
+} else {
+
+  message("No duplicate edges detected.")
+}
+
+
+# ---------------------------
+# 13. Check self-loops
+# ---------------------------
+
+self_loops <- edges %>%
+  filter(source == target)
+
+if (nrow(self_loops) > 0) {
+
+  message("Warning: self-loops detected.")
+
+} else {
+
+  message("No self-loops detected.")
+}
+
+
+# ---------------------------
+# 14. Create igraph network
+# ---------------------------
+
+g_all <- igraph::graph_from_data_frame(
+  d = edges,
+  vertices = data_clean,
+  directed = FALSE
+)
+
+
+# ---------------------------
+# 15. Calculate node degree
+# ---------------------------
+
+node_degree <- tibble(
+  case_id = names(igraph::degree(g_all)),
+  degree = as.numeric(
+    igraph::degree(g_all)
+  )
+)
+
+
+# ---------------------------
+# 16. Classify linked cases and isolates
+# ---------------------------
+
+nodes_network <- data_clean %>%
+  left_join(
+    node_degree,
+    by = "case_id"
+  ) %>%
+  mutate(
+    degree = replace_na(
+      degree,
+      0
+    ),
+
+    linkage_status = case_when(
+      degree >= 1 ~ "Linked",
+      degree == 0 ~ "Isolate"
+    )
+  )
+
+
+# ---------------------------
+# 17. Summarise linkage status
+# ---------------------------
+
+linkage_summary <- nodes_network %>%
+  count(
+    linkage_status,
+    name = "n_cases"
+  ) %>%
+  mutate(
+    percent = round(
+      100 * n_cases / sum(n_cases),
+      1
+    )
+  )
+
+print(linkage_summary)
+
+
+# ---------------------------
+# 18. Create linked-case dataset
+# ---------------------------
+
+linked_nodes <- nodes_network %>%
+  filter(
+    linkage_status == "Linked"
+  )
+
+
+# ---------------------------
+# 19. Create linked-case network
+# ---------------------------
+
+g_linked <- igraph::induced_subgraph(
+  g_all,
+  vids = V(g_all)[
+    V(g_all)$name %in% linked_nodes$case_id
+  ]
+)
+
+
+# ---------------------------
+# 20. Basic validation
+# ---------------------------
+
+cat(
+  "\nAll cases:",
+  igraph::vcount(g_all),
+  "\n"
+)
+
+cat(
+  "All edges:",
+  igraph::ecount(g_all),
+  "\n"
+)
+
+cat(
+  "Linked cases:",
+  igraph::vcount(g_linked),
+  "\n"
+)
+
+cat(
+  "Linked-case edges:",
+  igraph::ecount(g_linked),
+  "\n"
+)
+
+
+# ---------------------------
+# 21. Save edge list
+# ---------------------------
+
+dir.create(
+  "data/processed",
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+
+write_csv(
+  edges,
+  "data/processed/spatiotemporal_edges_200m_14d.csv"
+)
+
+
+# ---------------------------
+# 22. Save node table
+# ---------------------------
+
+write_csv(
+  nodes_network,
+  "data/processed/network_nodes_200m_14d.csv"
+)
+
+
+# ---------------------------
+# 23. Save linkage summary
+# ---------------------------
+
+dir.create(
+  "output/tables",
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+
+write_csv(
+  linkage_summary,
+  "output/tables/linkage_status_summary.csv"
+)
+
+
+# ==========================================================
+# End of 02_construct_spatiotemporal_links.R
+#
+# Next:
+# R/03_network_descriptive_analysis.R
+# ==========================================================
