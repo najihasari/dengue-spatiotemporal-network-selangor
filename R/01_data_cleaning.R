@@ -16,10 +16,6 @@
 # 6. Validate geographic coordinates
 # 7. Restrict analysis to Selangor districts
 # 8. Export a clean analytical dataset
-#
-# IMPORTANT:
-# The original confidential surveillance dataset should NOT
-# be uploaded to a public GitHub repository.
 # ==========================================================
 
 
@@ -475,11 +471,6 @@ print(district_summary)
 # ---------------------------
 # 21. Save cleaned dataset
 # ---------------------------
-
-# IMPORTANT:
-# If this repository is public, ensure that this file is
-# excluded using .gitignore because it contains confidential
-# case-level coordinates.
 
 dir.create(
   "data/processed",
